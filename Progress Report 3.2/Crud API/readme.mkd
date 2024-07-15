@@ -133,31 +133,31 @@
 1. Faça login no console do API Gateway
 2. Escolha sua API ``http-crud-tutorial-api``
 
-![](/Imagens/anexandointregação1.png)
+![](./Imagens/anexandointregação1.png)
 
 3. Escolha ``Integrações``
 4. Escolha uma rota
 5. Selecione ``Anexar Integração``
 
-![](/Imagens/anexandointregação2.png)
+![](./Imagens/anexandointregação2.png)
 
 6. Selecione ``Criar e anexar uma integração``
 
-![](/Imagens/anexandointregação3.png)
+![](./Imagens/anexandointregação3.png)
 
 7. Selecione a rota que deseja anexar
 8. No tipo de integração, selecione ``Função do Lambda``
 9. Selecione a integração que fizemos ``http-crud-tutorial-function``
 
-![](/Imagens/anexandointregação4.png)
+![](./Imagens/anexandointregação4.png)
 
 10. Depois escolha ``Criar``
 
-![](/Imagens/anexandointregação5.png)
+![](./Imagens/anexandointregação5.png)
 
 11. Repita o processo para todas as rotas
 
-![](/Imagens/anexandointregação6.png)
+![](./Imagens/anexandointregação6.png)
 
 ## Test your API
 
@@ -166,7 +166,7 @@
 1. Selecione sua API
 2. Copie a URL de invocação da sua API.
 
-![](/Imagens/testandoapi1.png)
+![](./Imagens/testandoapi1.png)
 
 3. Faça requisições ``PUT`` com o seguinte ``JSON``
 
@@ -178,21 +178,21 @@
     "name": "myitem2"
 }
 ```
-![](/Imagens/testandoapi2.png)
+![](./Imagens/testandoapi2.png)
 
 4. Insira outros items com ids diferentes.
 5. Agora faça uma requisição do tipo ``GET`` na rota ``/items``
 
-![](/Imagens/testandoapi3.png)
+![](./Imagens/testandoapi3.png)
 
 
 6. Busque um item por ``ID`` em ``/items/{id}``
 
-![](/Imagens/testandoapi4.png)
+![](./Imagens/testandoapi4.png)
 
 7. Delete um item, usando ``Delete`` 
 
-![](/Imagens/testandoapi5.png)
+![](./Imagens/testandoapi5.png)
 
 ## Finally 
 

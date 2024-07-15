@@ -1,6 +1,6 @@
 ## Build your first CRUD API in 45 minutes or less!
 
-- O objetivo deste workshop é construir uma API muito simples CRUD (Create, Read, Update, Delete). Para que isso aconteça, devemos antes passar por alguns passos. Começando com a criação de uma tabela ``DynamoDB`` usando o console do ``DynamoDB``, passando pela criação de uma função ``Lambda`` no console da ``AWS Lambda``. Em seguida, você configurará uma ``API HTTP`` usando o console do ``API Gateway`` e, por último, testamos a API!
+- O objetivo deste workshop é construir uma CRUD API muito simples (Create, Read, Update, Delete). Para que isso aconteça, devemos antes passar por alguns passos. Começando com a criação de uma tabela ``DynamoDB`` usando o console do ``DynamoDB``, passando pela criação de uma função ``Lambda`` no console da ``AWS Lambda``. Em seguida, você configurará uma ``API HTTP`` usando o console do ``API Gateway`` e, por último, testamos a API!
 
 ## DynamoDB table
  
@@ -27,3 +27,173 @@
 ![](./Imagens/criandotabela1.png)
 ![](./Imagens/criandotabela2.png)
 ![](./Imagens/criandotabela3.png)
+
+## Lambda Function
+
+<div style="text-align: center;">
+  <img src="./Imagens/lambda.png">
+</div>
+
+- O AWS Lambda é um serviço que permite executar código sem gerenciar servidores. Ele responde a eventos, escalando automaticamente de poucas requisições por dia a milhares por segundo. No contexto de uma API, você cria funções Lambda para operações CRUD no DynamoDB, utilizando eventos do API Gateway para direcionar as interações. Embora o tutorial use uma função Lambda única por simplicidade, é recomendável separar funções para cada rota da API.
+
+## Create a lambda function
+
+1. Entre no console do Lambda.
+2. Escolha ``Criar do Zero``.
+3. Para o nome da função, coloque: ``http-crud-tutorial-function``.
+4. Em Tempo de execução, selecione ``Node.js 16.x``.
+5. Em Permissões, escolha ``Alterar a função de execução padrão``.
+6. Selecione ``Criar uma função a partir da política da AWS templates``.
+7. Para Nome da função, digite: ``http-crud-tutorial-role``.
+8. Para Modelos de política, escolha: ``Permissões de microsserviço simples``. Esta política concede permissão à função Lambda para interagir com o DynamoDB.
+9. Selecione ``Criar Função``.
+
+![](./Imagens/criandoLambda1.png)
+![](./Imagens/criandoLambda2.png)
+![](./Imagens/criandoLambda3.png)
+
+10. Role a página para baixo até o editor de código do console.
+11. Abra o arquivo ``index.js`` e substitua seu conteúdo pelo código do arquivo: [Codigo](codigo.js).
+12. selecione ``Deploy`` para atualizar sua função.
+
+![](./Imagens/criandoLambda4.png)
+
+## Função HTTP
+
+<div style="text-align: center;">
+  <img src="./Imagens/http.png">
+</div>
+
+- O Amazon API Gateway é um serviço totalmente gerenciado que facilita a publicação, manutenção, monitoramento, segurança e operação de APIs em qualquer escala. Em conjunto com o AWS Lambda, ele constitui a parte da frente da infraestrutura serverless da AWS.
+
+- Existem duas formas principais de criar APIs RESTful com o API Gateway: HTTP APIs e REST APIs. As HTTP APIs oferecem menor latência e custo em comparação com as REST APIs, permitindo que você envie requisições para funções AWS Lambda ou qualquer endpoint HTTP publicamente roteável. Durante a configuração, você define um endpoint HTTP para sua função Lambda. No tutorial, você começaremos criando uma API vazia e configuraremos rotas e integrações para conectar sua API com suas funções Lambda.
+
+## Create an HTTP API
+
+1. Entre no console do API Gateway
+2. Escolha ``Criar API`` (Se você vir uma tela de boas-vindas, pule este passo e vá para o passo 3).
+3. Selecione ``API HTTP`` e depois ``Compilar``
+
+![](./Imagens/criandohttp1.png)
+
+4. Para o nome da API coloque: ``http-crud-tutorial-api``
+5. Selecione ``Next``
+
+![](./Imagens/criandohttp2.png)
+
+6. Para configurar rotas, escolha Avançar para pular a criação de rotas. Você criará as rotas posteriormente.
+   
+![](./Imagens/criandohttp3.png)
+
+7. Verifique se a proxima parte "Configurar estágios" está em ``$default`` e então escolha ``Avançar``.
+  
+![](./Imagens/criandohttp4.png)
+
+8. Analise as informações e depois, selecione ``Criar``
+
+![](./Imagens/criandohttp5.png)
+
+## Routes
+
+<div style="text-align: center;">
+  <img src="./Imagens/routees.png">
+</div>
+
+- Rotas são usadas para direcionar requisições de API para recursos de backend. Cada rota consiste em um método HTTP e um caminho de recurso, como por exemplo, GET /items. Para este exemplo de API, definimos quatro rotas:
+
+1. GET /items/{id} (para obter um item específico)
+2. GET /items (para obter todos os itens)
+3. PUT /items (para atualizar um item)
+4. DELETE /items/{id} (para excluir um item específico)
+5. Essas rotas permitem realizar operações de criação, leitura, atualização e exclusão (CRUD) em uma coleção fictícia de itens.
+
+- Essas rotas permitem realizar operações CRUD (Create, Read, Update, Delete) em uma coleção fictícia de itens.
+
+## Create routes
+
+1. Entre no console do API Gateway
+2. Escolha sua API ``http-crud-tutorial-api``
+3. No painel esquerdo, escolha ``Rotas``
+4. Escolha ``Criar``
+
+![](./Imagens/criandoroutes1.png)
+
+5. Para o método selecione: ``GET``.
+6. Para o caminho, digite ``/items/{id}``. O ``{id}`` no final do caminho é um parâmetro de caminho que o API Gateway recupera do caminho da requisição quando um cliente faz uma solicitação. Depois clique em ``Criar``.
+
+![](./Imagens/criandoroutes2.png)
+
+7. Repita os passos 4 a 6 para os métodos: **GET** ``/items``, **DELETE** ``/items/{id}`` e **PUT** ``/items``.
+8. Verifique se todas as rotas foram cridas.
+
+![](./Imagens/criandoroutes3.png)
+
+## To attach integrations to routes
+
+1. Faça login no console do API Gateway
+2. Escolha sua API ``http-crud-tutorial-api``
+
+![](/Imagens/anexandointregação1.png)
+
+3. Escolha ``Integrações``
+4. Escolha uma rota
+5. Selecione ``Anexar Integração``
+
+![](/Imagens/anexandointregação2.png)
+
+6. Selecione ``Criar e anexar uma integração``
+
+![](/Imagens/anexandointregação3.png)
+
+7. Selecione a rota que deseja anexar
+8. No tipo de integração, selecione ``Função do Lambda``
+9. Selecione a integração que fizemos ``http-crud-tutorial-function``
+
+![](/Imagens/anexandointregação4.png)
+
+10. Depois escolha ``Criar``
+
+![](/Imagens/anexandointregação5.png)
+
+11. Repita o processo para todas as rotas
+
+![](/Imagens/anexandointregação6.png)
+
+## Test your API
+
+- Podemos usar diversas plataformas para testar a API, porém, neste exercício usaremos o Postman.
+
+1. Selecione sua API
+2. Copie a URL de invocação da sua API.
+
+![](/Imagens/testandoapi1.png)
+
+3. Faça requisições ``PUT`` com o seguinte ``JSON``
+
+
+ ```javascript
+ {
+    "id": "abcdef236",
+    "price": 12345,
+    "name": "myitem2"
+}
+```
+![](/Imagens/testandoapi2.png)
+
+4. Insira outros items com ids diferentes.
+5. Agora faça uma requisição do tipo ``GET`` na rota ``/items``
+
+![](/Imagens/testandoapi3.png)
+
+
+6. Busque um item por ``ID`` em ``/items/{id}``
+
+![](/Imagens/testandoapi4.png)
+
+7. Delete um item, usando ``Delete`` 
+
+![](/Imagens/testandoapi5.png)
+
+## Finally 
+
+- Não se esqueça de apagar a API, a tabela do banco de dados e a função Lambda para evitar cobranças desnecessárias.

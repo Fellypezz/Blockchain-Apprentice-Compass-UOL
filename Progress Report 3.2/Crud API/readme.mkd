@@ -1,0 +1,29 @@
+## Build your first CRUD API in 45 minutes or less!
+
+- O objetivo deste workshop é construir uma API muito simples CRUD (Create, Read, Update, Delete). Para que isso aconteça, devemos antes passar por alguns passos. Começando com a criação de uma tabela ``DynamoDB`` usando o console do ``DynamoDB``, passando pela criação de uma função ``Lambda`` no console da ``AWS Lambda``. Em seguida, você configurará uma ``API HTTP`` usando o console do ``API Gateway`` e, por último, testamos a API!
+
+## DynamoDB table
+ 
+<div style="text-align: center;">
+  <img src="./Imagens/dynamo.png" alt="Imagem do DynamoDB">
+</div>
+
+
+ - O ``Amazon DynamoDB`` é um serviço de banco de dados NoSQL totalmente gerenciado pela AWS, projetado para oferecer um desempenho rápido e consistente com escalabilidade automática. Ele elimina a necessidade de gerenciar aspectos como provisionamento de hardware, configuração e escalonamento de clusters. O DynamoDB permite criar tabelas capazes de armazenar grandes volumes de dados e lidar com qualquer nível de tráfego de solicitações, sendo ideal para aplicações com necessidades variáveis de carga de trabalho.
+
+- Nós Utilizamos uma tabela do Amazon DynamoDB para armazenar dados para sua API. Cada item possui um ID único, que utilizamos como chave de partição da tabela
+
+## Create a DynamoDB table:
+
+1. Primeiro abra o DynamoDB.
+2. Selecione ``Criar Tabela``.
+
+![](./Imagens/criandotabela.png)
+
+3. O nome da sua tabela deverá ser: ``http-crud-tutorial-items``.
+4. Para o nome da chave de partição, coloque: ``id``.
+5. Selecione ``Criar`` (Veja os passos abaixo os passos 1,2,3).
+
+![](./Imagens/criandotabela1.png)
+![](./Imagens/criandotabela2.png)
+![](./Imagens/criandotabela3.png)

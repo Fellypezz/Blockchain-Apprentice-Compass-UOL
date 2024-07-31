@@ -1,0 +1,130 @@
+# Overview
+Os frontends permitem que clientes e baristas interajam com o aplicativo backend. Existem 3 aplicativos frontend:
+
+- Aplicativo de exibição : exibe o código QR e os pedidos de bebidas futuros/concluídos.
+- Aplicativo Barista : permite que o barista conclua e cancele pedidos conforme eles chegam.
+- Aplicativo do cliente : permite que os clientes façam e cancelem pedidos de bebidas.
+  
+## How it works:
+- Os frontends são aplicativos Vue.js que foram implantados com o AWS Amplify . Para simplificar, eles já foram implantados para você.
+- Os aplicativos frontend usam o Amazon Cognito para permitir que os clientes se registrem e façam login em suas contas. O backend usa a mesma configuração do Cognito para identificar usuários.
+- Os frontends usam endpoints do Amazon API Gateway para se comunicar com serviços principais. Eles também usam uma conexão WebSocket com o AWS IoT Core para receber mensagens em tempo real.
+
+### Pushing messages back to the frontends with WebSockets
+- Os aplicativos da web modernos geralmente usam o padrão publicar-assinar para receber notificações conforme os dados mudam. Desde receber alertas quando novos e-mails chegam até fornecer análises de painel, esse método permite fluxos de eventos muito mais ricos de sistemas de backend.
+- Os frontends do Serverlesspresso usam esse padrão ao ouvir alterações no status do pedido. Os frontends assinam por meio do AWS SDK e aguardam mensagens publicadas pelo backend. O SDK gerencia automaticamente a conexão WebSocket e também lida com muitos problemas comuns de conectividade em aplicativos da web. As mensagens são categorizadas usando tópicos, que são strings que definem canais de mensagens.
+- O serviço AWS IoT Core gerencia transmissões entre publicadores de backend e assinantes de frontend. Isso habilita a funcionalidade fan-out, que ocorre quando vários assinantes estão ouvindo o mesmo tópico. Você pode transmitir mensagens para milhares de dispositivos de frontend usando esse mecanismo. Para integração de aplicativos da web, essa é a maneira preferível de implementar publicar-assinar do que usar o Amazon SNS.
+
+### To start AWS CloudShell:
+1. Na barra de pesquisa do AWS Management Console, digite **CloudShell** e escolha **CloudShell** nas opções de pesquisa.
+2. Selecione **Fechar** para prosseguir além do alerta de boas-vindas:
+
+![](./Imagens/over1.png)
+
+3. No terminal do CloudShell, digite o seguinte comando para recuperar o valor do **poolId** valor:
+
+```json
+aws cognito-identity list-identity-pools --max-results 10
+```
+
+![](./Imagens/over2.png)
+
+4. Execute este comando para recuperar o valor do**host**:
+
+```json
+aws iot describe-endpoint --endpoint-type iot:Data-ATS
+```
+
+![](./Imagens/over3.png)
+
+5. Copie esses dois valores para um bloco de rascunho, você precisará deles na seção “The Display App”.
+
+
+# PUBLISHING EVENTS TO THE FRONTENDS
+
+## How it works
+- O microsserviço Publisher recebe eventos por meio de regras do EventBridge e os encaminha para tópicos no AWS IoT Core. Os frontends são configurados para ouvir os tópicos apropriados.
+
+![](./Imagens/over4.png)
+
+Existem três tópicos:
+
+- **Admin**: reservado para eventos relacionados a aplicativos de administração (o aplicativo Barista e Display).
+- **Usuário**: o aplicativo do cliente assina este tópico para obter informações relacionadas ao usuário conectado no momento.
+- **Configuração**: todos os aplicativos assinam este tópico para alterações na configuração do sistema, como quando o menu ou o estado da loja são alterados.
+
+# FrontEnd´s
+
+## The Display App
+
+1. No AWS Management Console, pesquise por “Cloud Formation”, e encontre a saída chamada DisplayAppURI e escolha a URL pré-criada.
+2. Encontre a saída chamada DisplayAppURI e escolha a URL pré-criada. Abra este link em uma nova aba.
+   
+![](./Imagens/over5.png)
+
+3. Isso abre a interface do aplicativo de exibição com todas as configurações, exceto 2, pré-preenchidas.
+
+![](./Imagens/over6.png)
+
+4. Conclua as configurações restantes:
+- **PoolId** : insira o poolIdvalor obtido anteriormente em Encontrando as configurações .
+- **Host** : insira o hostvalor obtido anteriormente em Encontrando as configurações .
+5. Selecione Salvar e recarregar.
+6. Volte para a aba do navegador que mostra o Display App. Faça login com o usuário que você criou e o Display App agora é mostrado.
+
+![](./Imagens/over9.png)
+
+Observe os 4 botões de administração fornecidos no canto superior direito:
+- **Configurar aplicativo Barista**: use isso para transferir configurações para o aplicativo Barista mais adiante nesta seção.
+- **Configurar aplicativo de pedidos** : use isso para transferir configurações para o aplicativo de pedidos mais adiante nesta seção.
+- **Limpar configurações** : esvazia o cache de configurações locais e limpa as configurações de backend. Isso faz com que a página Configurações seja exibida na próxima vez que a página for recarregada. Use isso se quiser alterar suas configurações de backend.
+- **Sair** : desconecta o usuário do Cognito do frontend e retorna para a página de login.
+- O código QR exibido mudará a cada cinco minutos e limitará o número total de pedidos ao valor exibido na tela (10 por padrão). Mais tarde, no teste de ponta a ponta, você escaneará este código QR para iniciar o processo de pedido.
+
+# Setting up the Barista App
+
+1. Escolha o botão Configure Barista app na barra de ferramentas
+
+![](./Imagens/over7.png)
+
+2. Isso abre a página de configuração do aplicativo Barista em uma nova janela com as configurações de backend incorporadas na sequência de consulta de URL.
+3. Selecione Salvar e recarregar e logue novamente em sua conta.
+
+![](./Imagens/over8.png)
+
+4. O aplicativo Barista é exibido.
+
+![](./Imagens/over10.png)
+
+Observe os três botões de administração fornecidos na barra de ferramentas:
+
+- **Loja aberta**: Isso alterna o estado de loja aberta entre Open e Closed . Quando a loja está fechada, o Order App não pode fazer novos pedidos.
+- **Limpar configurações**: esvazia o cache de configurações locais e limpa as configurações de backend. Isso faz com que a página Configurações seja exibida na próxima vez que a página for recarregada. Use isso se quiser alterar suas configurações de backend.
+- **Sair** : desconecta o usuário do Cognito do frontend e retorna para a página de login.
+
+# Customer App
+
+1. Escolha o botão Configure order app na barra de ferramentas.
+
+![](./Imagens/app1.png)
+
+2. Isso abre um pop-up contendo um código QR, que incorpora as configurações de backend em uma sequência de consulta.
+
+![](./Imagens/app2.png)
+
+3. No seu smartphone, use o aplicativo de scanner de código de barras para escanear este código QR. Isso abre a página de configurações e preenche os campos com as configurações de backend.
+4. Selecione Salvar e recarregar. Feche esta aba por enquanto.
+
+# End-to-end test
+
+1. Certifique-se de que o Display App e o Barista App estejam abertos em duas abas separadas do navegador.
+2. Abra o scanner de código de barras no seu smartphone e entre no aplicativo usando a conta que você criou na seção anterior.
+3. Após a validação do token, selecione uma bebida para pedir e escolha Pedir agora . Se o seu aplicativo continuar executando a configuração toda vez que você escanear o código QR, certifique-se de que você não esteja usando a configuração de “navegação privada” para o Safari ou “incógnito” para o Chrome no seu smartphone.
+4. Interaja com o aplicativo Barista para preparar ou cancelar a bebida e observe como os aplicativos Display e Clientes são atualizados.
+
+![](./Imagens/app8.png)
+![](./Imagens/app3.png)
+![](./Imagens/app4.png)
+![](./Imagens/app5.png)
+![](./Imagens/app6.png)
+![](./Imagens/app7.png)

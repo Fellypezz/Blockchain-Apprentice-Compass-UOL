@@ -1,0 +1,486 @@
+# ROUTING EVENTS
+
+## O que são eventos?
+- Em termos mais simples, um evento é um sinal de que o estado de um sistema mudou. Na AWS, ele é representado como uma mensagem JSON, contendo algum conjunto de fatos sobre o que mudou e potencialmente qual é o estado atual do sistema.
+
+Os eventos são:
+
+- **Fatos:** são baseados em algo que aconteceu.
+- **Imutáveis:** não podem ser desfeitos. Por exemplo, um evento pode ser um novo pedido de café. Se você cancelar o pedido, esse é um evento de cancelamento separado e não altera o conteúdo do evento original.
+- **Observável:** microsserviços podem assinar eventos dos quais gostam.
+- **Temporal:** o tempo de um evento importa.
+
+### Como é um evento?
+
+- Eventos são mensagens JSON contendo uma mensagem encapsulada em um envelope:
+
+![](./Imagens/evento1.png)
+
+- O envelope, mostrado na caixa vermelha acima, contém atributos fornecidos pelo EventBridge. Eles identificam a conta AWS de origem, o timestamp, a região de origem e os recursos AWS.
+- O atributo `source` é fornecido pelo aplicativo que cria o evento. Este workshop usa a fonte `awsserverlessda.serverlesspresso` para identificar exclusivamente todos os eventos relacionados a esta carga de trabalho. Você pode definir isso para quase qualquer valor (os eventos da AWS usam um prefixo de “AWS”, que é reservado).
+- O atributo `detail-type` também é definido pelo aplicativo que cria o evento. Isso fornece informações sobre o tipo de evento. Neste exemplo, `OrderProcessor.WorkflowStarted` indica a fonte de `OrderProcessor` e uma ação de `WorkflowStarted`.
+- O atributo `detail` é um payload JSON contendo informações de eventos personalizados. Para eventos personalizados que você cria, isso pode ser qualquer JSON arbitrário.
+
+# Como você roteia eventos entre sistemas e microsserviços?
+
+- O fluxo de trabalho criado no módulo 1 orquestra pedidos individuais do início ao fim. Algumas das etapas do fluxo de trabalho exigem interação humana (como um cliente enviando seu pedido de bebida ou o barista aceitando e concluindo o pedido).
+- O fluxo de trabalho emite um evento nessas etapas e então aguarda uma resposta antes de continuar. O evento é emitido para um barramento de eventos sem servidor, onde é roteado para o(s) serviço(s) relevante(s).
+- O roteamento é realizado pelo Amazon EventBridge. Você publica eventos em buses, e os assinantes usam regras para filtrar eventos com os quais se importam. Neste módulo, você criará regras no EventBridge para capturar e rotear esses eventos para o serviço relevante.
+
+## Como funciona
+- O EventBridge permite que você roteie eventos de serviços da AWS, aplicativos personalizados, software como aplicativo de serviço e microsserviços. Os eventos são enviados para barramentos, incluindo barramentos personalizados que você pode configurar especificamente para sua carga de trabalho. Consumidores como serviços da AWS ou microsserviços usam regras para filtrar as mensagens que desejam receber.
+
+![](./Imagens/evento2.png)
+
+- Esta é a mensagem por trás da arquitetura orientada a eventos. Ela permite que você desvincule os produtores e consumidores de eventos - os produtores não sabem quem, se alguém, está ouvindo os eventos que eles publicam. Da mesma forma, os assinantes não sabem se mais alguém está ouvindo e podem não conhecer o publicador do evento.
+- Isso pode tornar mais rápido o desenvolvimento de novos recursos em software, aumentar a extensibilidade e reduzir o atrito entre as equipes de desenvolvimento.
+
+# Log All
+
+## Creating the “Log All” rule
+
+1. Vá para o console do EventBridge. No AWS Management Console, selecione Services e, em seguida, EventBridge Application Integration. Certifique-se de que sua região esteja correta.
+
+![](./Imagens/rule1.png)
+
+2. Selecione Regras. Selecione Criar regra.
+
+![](./Imagens/rule2.png)
+
+3. Na Etapa 1:
+- Para o **Nome**, insira ``logAll``.
+- Para **barramento de eventos**, digite ``Serverlesspresso``.
+- Selecione **Avançar**.
+  
+![](./Imagens/rule3.png)
+
+4. Na Etapa 2:
+- Para Fonte do evento, selecione Outro.
+- Ignore o painel de eventos de amostra.
+- No painel **Padrão de evento**, cole o seguinte código:
+```json 
+{
+  "source": ["awsserverlessda.serverlesspresso"]
+}
+```
+- Escolha **Proximo**
+
+![](./Imagens/rule4.png)
+![](./Imagens/rule5.png)
+
+5. Na Etapa 3:
+- No painel Destino 1 , escolha **serviço AWS**.
+- No menu suspenso Selecionar um destino , escolha o **grupo de logs do CloudWatch**.
+- No campo Grupo de Log , insira ``serverlesspressoEventBus``.
+
+![](./Imagens/rule6.png)
+
+6. Na Etapa 4 , escolha **Próximo**.
+7. Na Etapa 5 , escolha **Criar regra**.
+
+# Testing the “Log All” EventBridge rule
+
+1. No console do **AWS Step Functions**, selecione a máquina de estados que você criou anteriormente.
+2. Na seção no topo da página que mostra o fluxo de trabalho, escolha Iniciar execução.
+3. No pop-up Iniciar execução, insira o seguinte JSON na caixa de texto:
+
+```json
+{
+    "detail": {
+      "orderId": "2",
+      "userId": "testuser2"
+    }
+}
+```
+
+4. O console mostra o status de Execução de Running. O lado esquerdo mostra o fluxo de execução com os estados verdes mostrando o caminho real. O estado azul mostra quando a execução está suspensa, aguardando um retorno de chamada.
+
+![](./Imagens/rule7.png)
+
+5. No painel Histórico de eventos de execução, abra o evento **Emit - Workflow Started TT**. Elas contêm:
+- O nome do barramento de eventos EventBusName para o qual o evento é emitido ( serverlesspresso).
+- O evento Fonte ( awsserverlessda.serverlesspresso).
+- O evento DetailType( OrderProcessor.WorkflowStarted).
+
+![](./Imagens/rule8.png)
+
+6. Como esse evento é emitido para o **Serverlesspress** o barramento de eventos contém a origem **awsserverlessda.serverlesspresso**, ele é roteado para o **CloudWatch Logs** pela regra que você criou.
+7. Vá para o console do CloudWatch. No AWS Management Console, selecione Services e depois selecione CloudWatch em Management & Governance.
+8. No menu esquerdo, escolha **Log groups**. Escolha o grupo de logs chamado ``/aws/events/serverlesspressoEventBus``.
+
+![](./Imagens/rule9.png)
+
+9. Cada evento é registrado em um fluxo de log separado. Escolha o primeiro fluxo de log.
+
+![](./Imagens/rule10.png)
+
+10. Na seção Target(s), escolha o target chamado **severlesspressoEventBus** e, em seguida, escolha a primeira linha na seção **Log Stream**.Isso mostra todas as informações do evento, incluindo as TaskTokengeradas pelo Step Functions, o evento detail-typee o evento source.
+
+![](./Imagens/rule11.png)
+
+
+# New Order
+
+## Creating the “New Order” rule
+
+1. Vá para o console do EventBridge.
+2. Selecione **Regras**, depois **Criar regra**.
+3. Na Etapa 1:
+
+- Para o Nome, insira ``NewOrder ``.
+- Para barramento de eventos , digite ``Serverlesspresso``.
+- Selecione **Avançar**.
+
+![](./Imagens/order1.png)
+
+4. Na Etapa 2:
+- Para **Fonte do evento**, selecione **Outro**.
+- Ignore o painel de eventos de amostra.
+- No painel Padrão de evento, cole o seguinte JSON:
+```json
+{
+  "detail-type": ["Validator.NewOrder"],
+  "source": ["awsserverlessda.serverlesspresso"]
+}
+```
+
+![](./Imagens/order2.png)
+![](./Imagens/order3.png)
+
+5. Na Etapa 3:
+- No painel Destino 1, escolha **serviço AWS**.
+- No menu **Selecionar um destino**, escolha **Máquina de estado de funções de etapa**.
+- No menu State machine, escolha **OrderProcessorWorkflow**. 
+- Selecione Avançar.
+
+![](./Imagens/order4.png)
+
+## Testing the “New Order” rule
+
+1. No console do AWS EventBridge, em Eventos, escolha **Barramentos de eventos**.
+2. Selecione o barramento de eventos **Serverlesspresso**.
+
+![](./Imagens/order5.png)
+
+3. Selecione **Enviar eventos**.
+
+![](./Imagens/order6.png)
+
+4. Verifique se o **barramento de eventos** **serverlesspresso** está selecionado.
+5. Copie o seguinte na entrada **Fonte do evento**:
+```json
+awsserverlessda.serverlesspresso
+```
+6. Copie o seguinte na entrada do **Tipo de detalhe**:
+```json
+Validator.NewOrder
+```
+7. Copie o seguinte na entrada **Detalhes do evento**:
+```json
+{"userId":"1","orderId":"1"}
+```
+
+![](./Imagens/order7.png)
+
+8. Escolha Enviar
+9. Isso deve criar um ID de evento com um resumo de confirmação:
+
+![](./Imagens/order8.png)
+
+10. No console do AWS Step Functions, selecione a máquina de estados que você criou anteriormente. Você verá a execução mais recente com o Status, Running .
+11. Selecione a execução mais recente na coluna **Nome**.
+
+![](./Imagens/order9.png)
+
+12.  A nova regra roteou com exito.
+
+![](./Imagens/order10.png)
+
+# Workflow Started rule
+
+## Creating the Workflow Started rule
+
+1. Vá para o console do EventBridge.
+2. Selecione **Regras**, depois **Criar regra**.
+3. Na Etapa 1:
+
+- Para o Nome, insira ``WorkflowStarted``.
+- Para barramento de eventos , digite ``Serverlesspresso``.
+- Selecione **Avançar**.
+
+![](./Imagens/t1.png)
+
+4. Na Etapa 2:
+- Para **Fonte do evento**, selecione **Outro**.
+- Ignore o painel de eventos de amostra.
+- No painel Padrão de evento, cole o seguinte JSON:
+```json
+{
+  "detail-type": ["OrderProcessor.WorkflowStarted"],
+  "source": ["awsserverlessda.serverlesspresso"]
+}
+```
+
+![](./Imagens/t2.png)
+![](./Imagens/t3.png)
+
+5. Na Etapa 3:
+- No painel Destino 1, escolha **serviço AWS**.
+- No menu **Selecionar um destino**, escolha **Lambda**.
+- No menu, escolha a função **Lambda** que contém o nome ``WorkflowStarted``.
+- Selecione **Avançar**.
+- Na ultima etapa selecione **Criar Regra**
+
+![](./Imagens/t4.png)
+![](./Imagens/t5.png)
+
+## Testing the “New Order” rule
+
+1. No console do AWS EventBridge, em Eventos, escolha **Barramentos de eventos**.
+2. Selecione o barramento de eventos **Serverlesspresso**.
+
+![](./Imagens/order5.png)
+
+3. Selecione **Enviar eventos**.
+
+![](./Imagens/order6.png)
+
+4. Verifique se o **barramento de eventos** **serverlesspresso** está selecionado.
+5. Copie o seguinte na entrada **Fonte do evento**:
+```json
+awsserverlessda.serverlesspresso
+```
+6. Copie o seguinte na entrada do **Tipo de detalhe**:
+```json
+Validator.NewOrder
+```
+7. Copie o seguinte na entrada **Detalhes do evento**:
+```json
+{"userId":"1","orderId":"1"}
+```
+
+![](./Imagens/order7.png)
+
+8. Escolha Enviar
+9. Isso deve criar um ID de evento com um resumo de confirmação:
+
+![](./Imagens/t6.png)
+
+10. Vá para o console do CloudWatch. No AWS Management Console, selecione Services e depois selecione CloudWatch em Management & Governance.
+11. No menu esquerdo, escolha **Log groups**. Escolha o grupo de logs chamado ``/aws/events/serverlesspressoEventBus``.
+
+![](./Imagens/rule9.png)
+
+12. Os dois fluxos de log mais recentes mostrados contêm os dois eventos.
+
+![](./Imagens/t7.png)
+
+13. Selecione o fluxo de log mais recente para mostrar os detalhes e expanda a seta ao lado da coluna ``TimestampOrderProcessor.WorkflowStarted``.
+
+![](./Imagens/t8.png)
+
+14.  Vá para o console do DynamoDB. No AWS Management Console, selecione Services e depois DynamoDB em Database.
+15.  Selecione Explorar itens no menu Tabelas à esquerda. Selecione a tabela serverlesspresso-order-table.
+
+![](./Imagens/t9.png)
+
+16. No painel Itens retornados , escolha o primeiro item para visualizar seu conteúdo. O pedido foi gravado na tabela do DynamoDB pela função Lambda. O item contém as Step Functions TaskToken, o Order ID (“SK”) e o “ORDERSTATE”:
+
+![](./Imagens/t10.png)
+
+# OrderManager
+
+- O fluxo de trabalho OrderManager é implantado com a configuração inicial do núcleo. Ele é acionado por uma chamada de API dos aplicativos front-end. Ele persiste atualizações para a entrada do pedido na serverlesspresso-order-table no DynamoDB. Ele também recupera o fluxo de trabalho atual TaskTokene retoma o orderProcessorfluxo de trabalho.
+
+![](./Imagens/s1.png)
+
+
+O fluxo de trabalho do OrderManager lida com 4 tarefas diferentes:
+
+1. **Colocação do cliente**: ocorre quando um cliente envia um pedido de bebida. O fluxo de trabalho verificará esse pedido em relação ao menu atual para garantir que seja uma seleção válida e, em seguida, atualizará a serverlesspresso-order-table com as informações do pedido.
+2. **Cancelar pedido**: Este caminho é tomado quando o barista ou o cliente decide cancelar um pedido.
+3. **Concluir pedido**: este caminho é seguido quando o barista escolhe o botão Concluir no aplicativo do barista.
+4. **Fazer/Desfazer**: Este caminho é seguido quando o barista reivindica um pedido no aplicativo do barista ou quando o barista move o pedido de volta para o estado de pedido pendente.
+
+## Testing the “OrderManager” workflow.
+
+1. Vá para o console do **Step Functions**. No **AWS Management Console**, selecione **Services** e, em seguida, selecione **Step Functions** em **Application Integration**.
+2. Selecione **State machines** no painel esquerdo e escolha **OrderManagerStateMachine**. Escolha **Start execution**.
+
+![](./Imagens/s5.png)
+
+3. Digite o seguinte na área de texto de entrada e escolha **Iniciar execução**:
+```json
+{"action":"","body":{"userId":"1","drink":"Cappuccino","modifiers":[],"icon":"barista-icons_cappuccino-alternative"},"orderId":"1","baristaUserId":"3"}
+```
+![](./Imagens/s3.png)
+
+4. Veja como isso afetou o fluxo de trabalho do OrderProcessor :
+
+- Selecione Máquinas de estado no menu de navegação no topo da página.
+- Escolha o fluxo de trabalho OrderProcessor e, em seguida, escolha a execução mais recente:
+
+![](./Imagens/s2.png)
+
+O TaskTokenfoi usado para enviar uma chamada 'TaskSuccess' para o OrderProcessor. O fluxo de trabalho foi retomado e progrediu para a próxima etapa de espera. Isso foi feito pela etapa Resume Order Processor.
+
+Veja o que acontece se for pedido um item que não está no menu:
+
+I. Acesse OrderManagerStateMachine no console do Step Functions.
+II. Selecione Iniciar execução, insira o seguinte na área de texto de entrada e selecione Iniciar execução:
+```json
+{"action":"","body":{"userId":"1","drink":"milkshake","modifiers":[],"icon":"barista-icons_cappuccino-alternative"},"orderId":"1","baristaUserId":"3"}
+```
+Esta entrada inclui uma bebida que não está disponível no menu **"drink":"milkshake"**.
+
+![](./Imagens/s4.png)
+
+# Waiting Completion
+- O WaitingCompletionevento é emitido pelo OrderProcessorfluxo de trabalho criado no módulo 1. Neste ponto do pedido, o usuário enviou sua solicitação de bebida, o OrderProcessorfluxo de trabalho gerou um número de pedido e agora está pausado até que o barista conclua o pedido. O fluxo de trabalho emitiu um WaitingCompletionevento, junto com um novo TaskTokenque é usado para retomar o fluxo de trabalho.
+
+![](./Imagens/wait1.png)
+
+## Creating the “Waiting Completion” rule
+
+1. Vá para  Services e, em seguida, EventBridge Application Integration
+2. Selecione Regras. Selecione Criar regra.
+3. Na Etapa 1:
+- Para o **Nome**, insira ``WaitingCompletion``.
+- Para **barramento de eventos**, digite ``Serverlesspresso``.
+- Selecione **Próximo**
+
+![](./Imagens/wait2.png)
+
+4. Na Etapa 2:
+- Para Fonte do evento, selecione **Outro**.
+- Ignore o painel de eventos de amostra .
+- No painel Padrão de evento, cole o seguinte:
+```json
+{
+  "detail-type": ["OrderProcessor.WaitingCompletion"],
+  "source": ["awsserverlessda.serverlesspresso"]
+}
+```
+![](./Imagens/wait3.png)
+![](./Imagens/wait4.png)
+
+- Selecione **Próximo**
+
+5. Na Etapa 3:
+- No painel Destino 1, escolha **serviço AWS**.
+- No menu **Selecionar** um alvo, escolha Lambda.
+- No menu **Function**, escolha a função **Serverlesspresso** contendo o nome **WaitingCompletion**.
+- Selecione **Avançar**.
+
+![](./Imagens/wait5.png)
+
+6. Na Etapa 4, escolha Avançar.
+7. Na Etapa 5, verifique se o painel de detalhes Definir regra que o Event bus é **Serverlesspresso**. Escolha **Criar regra**.
+
+### Review the list of rules
+
+- Nesta seção, você criou 4 regras EventBridge no barramento de eventos Serverlesspresso. Na página Rules, altere o menu Event bus para **Serverlesspresso** e verifique se você vê todas as 4 novas regras listadas.
+
+![](./Imagens/wait6.png)
+
+# End-to-End Test
+
+## Setting up your browser tabs
+- Esta seção se move entre diferentes fluxos de trabalho e serviços. Para se preparar, abra várias abas no seu navegador:
+
+1. Na primeira aba, vá para o console **Step Functions** e abra o **OrderProcessorWorkflow**. Este é o fluxo de trabalho que você construiu no módulo 1.
+2. Na segunda aba, vá para o console **Step Functions** e abra o **OrderManagerStateMachine**. Este fluxo de trabalho foi implantado no módulo de configuração.
+3. Certifique-se de que o **Console do EventBridge** esteja aberto em outra aba.
+4. Por fim, abra o Console do **DynamoDB** em outra aba.
+
+### 1º Creating a new drink order
+
+- Para iniciar um novo fluxo de trabalho, no AWS EventBridge Console, em Eventos :
+
+1. Escolha **Barramento de Eventos**.
+2. Selecione **Serverlesspresso**.
+
+![](./Imagens/task1.png)
+
+3. Selecione **Enviar eventos**.
+
+![](./Imagens/task2.png)
+
+4. Verifique se o barramento de eventos serverlesspresso está selecionado
+5. Copie o seguinte na entrada **Fonte do evento**:
+```json
+awsserverlessda.serverlesspresso
+```
+6. Copie o seguinte na entrada do **Tipo de detalhe**:
+```json
+Validator.NewOrder
+```
+7. Copie o seguinte na entrada **Detalhes do evento**:
+```json
+{"userId":"1","orderId":"2"}
+```
+
+![](./Imagens/task3.png)
+
+8. Escolha Enviar
+9. Vá para a aba **OrderProcessorWorkflow**. No painel **Executions**, abra a execução mais recente em um estado **Running**.
+
+![](./Imagens/task4.png)
+![](./Imagens/task5.png)
+
+10. Vá para serverlesspresso-order-table.
+11. Encontre a entrada onde SK é “2”. Selecione Orders na coluna PK para abrir os detalhes do item.
+
+![](./Imagens/task6.png)
+
+12. O TaskToken é armazenado aqui junto com o ID de pedido exclusivo. O aplicativo usa isso para retomar o fluxo de trabalho mais tarde.
+
+### 2º Adding the drink detail to the order
+
+1. Acesse a aba de fluxo de trabalho do OrderManager.
+2. Selecione Iniciar execução. Insira o seguinte na área de texto de entrada e selecione Iniciar execução:
+```json
+{"action":"","body":{"userId":"1","drink":"Cappuccino","modifiers":[],"icon":"barista-icons_cappuccino-alternative"},"orderId":"2","baristaUserId":"3"}
+```
+3. No fluxo de trabalho do OrderManager para esta execução, esta execução agora está concluída.
+4. Na aba OrderProcessor, o fluxo de trabalho foi retomado, permitindo que ele avance para a próxima TaskTokenetapa.
+5. O evento WaitingCompletion é emitido para o barramento de eventos Serverlesspresso. O evento é roteado para a função Lambda WaitingCompletion, que atualiza a serverlesspresso-order-table com o orderNumber e TaskToken.
+6. Para verificar isso, vá para serverlesspresso-order-table. Você pode ver uma nova coluna orderNumber, contendo o número do pedido legível por humanos.
+7. Na guia OrderProcessor, o fluxo de trabalho é pausado nesta etapa até que o barista notifique o aplicativo de que o pedido foi concluído.
+
+![](./Imagens/task8.png)
+
+### 3º Claiming the order
+
+1. Em seguida, use o fluxo de trabalho do OrderManager para simular o barista reivindicando o pedido.
+2. Acesse a aba de fluxo de trabalho do OrderManager.
+3. Selecione Iniciar execução. Insira o seguinte na área de texto de entrada e selecione Iniciar execução:
+```json
+{
+  "action": "make",
+  "body": {},
+  "orderId": "2",
+  "baristaUserId": "3"
+}
+```
+4. O fluxo de trabalho OrderManager atualiza a tabela do DynamoDB com o ID do pedido do barista e emite um novo evento.
+
+![](./Imagens/task9.png)
+
+### 4º Completing the order
+
+1. Acesse a aba de fluxo de trabalho do OrderManager.
+2. Selecione Iniciar execução. Insira o seguinte na área de texto de entrada e selecione Iniciar execução.
+```json
+{"action":"complete","body":{"userId":"1","drink":"Cappuccino","modifiers":[],"icon":"barista-icons_cappuccino-alternative"},"orderId":"2","baristaUserId":"3"}
+```
+3. O fluxo de trabalho OrderManager atualiza a tabela do DynamoDB e retoma o fluxo de trabalho OrderProcessor:
+
+![](./Imagens/task10.png)
+
+- Na aba OrderProcessor, a execução também é concluída:
+
+![](./Imagens/task11.png)
+
+4. Na tabela serverlesspresso-order, o pedido de bebida é atualizado, com o status Concluído:
+![](./Imagens/task11.png)

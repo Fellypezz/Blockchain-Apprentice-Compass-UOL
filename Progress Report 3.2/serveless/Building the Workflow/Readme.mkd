@@ -1,0 +1,829 @@
+# Visão Geral
+
+## Por que você precisa de um fluxo de trabalho?
+
+No aplicativo de pedidos de café, cada pedido de cliente segue uma série de etapas:
+
+- A leitura inicial do código QR inicia o processo de pedido.
+- O aplicativo verifica se a loja está aberta e se a fila do barista não está cheia. Neste workshop, o barista pode lidar com até 20 bebidas de uma só vez. Se a loja estiver fechada ou a fila estiver cheia, o processo de pedido é interrompido.
+- Aguarda 5 minutos para o cliente especificar o pedido, como "Latte de Baunilha com Leite de Soja". Se nada acontecer após 5 minutos, o pedido expira.
+- Aguarda 15 minutos para o barista produzir a bebida. Se nada acontecer após 15 minutos, o pedido expira.
+- O pedido é finalmente concluído ou cancelado pelo barista..
+
+## Como funciona
+
+Os fluxos de trabalho do Step Functions são definidos usando a Amazon States Language (ASL). ASL é uma linguagem estruturada baseada em JSON usada para definir máquinas de estados, que são coleções de estados que executam trabalho (estados de tarefa), determinam para quais estados transitar em seguida (estados de escolha), interrompem uma execução com um erro (estados de falha), entre outros. 
+
+
+# Creating the Step Functions workflow
+
+1. Acesse o console do Step Functions. No Console de Gerenciamento da AWS, selecione **Serviços** e depois selecione **Step Functions** em **Integração de Aplicativos**. Verifique se a região selecionada está correta.
+
+2. Escolha **Criar máquina de estados**.
+
+![](./imagens/criandomaquina1.png)
+
+3. Na página de criação de máquina de estados, selecione a primeira opção e depois **Selecionar**
+
+![](./imagens/criandomaquina2.png)
+
+4. No Passo 2, você projeta o fluxo de trabalho com o Workflow Studio. Aqui estão as principais áreas da interface do usuário:
+
+![](./imagens/criandomaquina3.png)
+
+I. Nesta aba, você escolhe entre Ações e Fluxo. Ações representam etapas que você pode realizar com serviços da AWS, como invocar uma função AWS Lambda. Fluxo mostra opções para gerenciar lógica de fluxo de controle, como estados de escolha ou lógica paralela.
+
+II. A barra de ferramentas no topo permite desfazer ou refazer alterações, além de alterar o layout da visualização do fluxo de trabalho.
+
+III. A visualização do fluxo de trabalho mostra um fluxograma do fluxo de trabalho atual. Você pode clicar nos elementos deste fluxo e arrastá-los para fazer alterações.
+
+IV. O painel direito mostra opções para o elemento atualmente selecionado. Em um novo fluxo de trabalho como este, você pode definir um comentário ou um valor de timeout para todo o fluxo de trabalho.
+
+5. Selecione a aba **Fluxo** e, em seguida, arraste um estado **Pass** da lista à esquerda para a caixa na visualização do fluxo de trabalho que diz "Arraste o primeiro estado aqui". Escolha Próximo.
+
+![](./imagens/criandomaquina4.png)
+
+6. Na parte de cima selecione **Codigo**, isso mostra a definição do fluxo de trabalho que você construiu até agora.
+
+![](./imagens/criandomaquina5.png)
+
+7. Na página **Configuração** , mostra as configurações para o novo fluxo de trabalho. Vamos organiza-las.
+
+![](./imagens/criandomaquina6.png)
+![](./imagens/criandomaquina7.png)
+
+(A) Para o nome , insira ``OrderProcessorWorkflow``.
+
+(B) Para Permissões , escolha **Escolha uma função existente**. Selecione a função que contém ``-01OrderProcessorRole-``. 
+
+(C) Para **Logging** , mantenha **OFF** no menu. Se você ativar isso, o Step Functions registrará o histórico de execução no CloudWatch Logs.
+
+(D) Para **Tracing** , mantenha isso desabilitado. 
+
+8. Depois de adicionar o nome e definir essas opções, escolha Criar máquina de estado .
+
+![](./imagens/criandomaquina8.png)
+
+# Testing the Step Functions workflow.
+
+1. Na seção anterior, na página que mostra o novo fluxo de trabalho, escolha **Iniciar execução** .
+
+![](./imagens/tm1.png)
+
+2. No pop-up Iniciar execução , edite o JSON de entrada para 
+```javascript
+{
+  "Comment": "Hello, world!"
+}
+```
+![](./imagens/tm2.png)
+
+3. Após a conclusão da execução, o console mostra uma página de resultados.
+
+![](./imagens/tm3.png)
+![](./imagens/tm4.png)
+![](./imagens/tm5.png)
+
+(1) O **Status de Execução** mostra **Succeeded** . Este painel também mostra o horário de início e término da execução e uma referência de Amazon Resource Name (ARN).
+
+(2) A **Vizualização do Gráfico** mostra o fluxo desta execução com o caminho do fluxo destacado em verde e quaisquer estados de erro em vermelho. Você pode selecionar cada elemento e ver a entrada e a saída.
+
+(3) O histórico de **Eventos** de execução mostra cada evento durante a execução e o tempo decorrido cumulativo. 
+
+# Reset the Step Functions workflow
+
+1. Vá para o console e selecione ``OrderProcessorWorkflow``. Certifique-se de que sua região esteja correta.
+
+2. No menu à esquerda, selecione State machine e escolha OrderProcessorWorkflow na lista. Escolha **Editar**.
+
+![](./imagens/opw1.png)
+
+3. Exclua o estado de passagem adicionado na seção anterior. Clique no estado na janela do designer e então escolha **Delete** na barra de ferramentas.
+
+![](./imagens/opw2.png)
+
+## Querying the DynamoDB table
+
+1. Com a aba **Acções** selecionada à esquerda, selecione **DynamoDB** na categoria Database. Arraste a ação **DynamoDB GetItem** da lista para o estado vazio no designer.
+
+![](./imagens/opw3.png)
+
+2. Com o estado selecionado, o painel de atributos à direita mostra a configuração para esse estado. Na aba **Configuração**:
+
+- Para nome do estado , digite ``DynamoDB Get Shop status``.
+- Para Parâmetros de API , cole a seguinte consulta do DynamoDB:
+
+```javascript
+{
+  "TableName": "serverlesspresso-config-table",
+  "Key": {
+    "PK": {
+      "S": "config"
+    }
+  }
+} 
+```
+
+![](./imagens/opw4.png)
+
+3. Selecione a aba **Saída**. Aqui, você modificará a saída do estado para incluir o resultado da consulta do DynamoDB:
+
+4. Marque a caixa Adicionar entrada original à saída usando **ResultPath**. Certifique-se de que Combinar entrada original com resultado esteja selecionado no menu e insira ``$.GetStore`` na caixa de texto.
+
+![](./imagens/opw5.png)
+
+# Adding branching logic
+
+1. Na guia Fluxo , arraste o estado **Choice** para baixo do estado do **DynamoDB GetItem**.
+
+![](./imagens/opw6.png)
+
+2. Na aba **Ações** , insira ``EventBridge`` na caixa de pesquisa. Encontre a ação **PutEvents** e arraste para a caixa vazia Rule #1 sob o estado de **Choice**.
+
+![](./imagens/opw7.png)
+
+3. Na aba **Fluxo** , arraste o estado **Pass** para a caixa vazia **Default** abaixo do estado de **Choice**.
+
+![](./imagens/opw8.png)
+
+4. Agora você definiu um branch lógico onde um resultado é roteado para o EventBridge e o outro para o estado pass. Em seguida, defina a lógica de decisão no estado choice. Clique no estado choice para abrir seus atributos no painel lateral direito. Para Rule #1 , clique no ícone edit.
+
+![](./imagens/opw9.png)
+
+5. Selecione **Add Conditions**.
+
+![](./imagens/opw10.png)
+
+6. No painel Condições para a regra nº 1 , especifique a regra que determinará se a loja será fechada:
+- Para **Not** , selecione **Not**.
+- Para **Variável** , insira ``$.GetStore.Item.storeOpen.BOOL``. Esta sintaxe JSONPath especifica o atributo booleano storeOpen da resposta da consulta do DynamoDB.
+- Para o Operador , selecione **is equal to**.
+- Para **Valor** , selecione **Boolean Const** e selecione **Verdadeiro** para o valor.
+- Por ultimo selecione **Save Conditions**.
+
+![](./imagens/opw11.png)
+
+7. Para o nome do estado coloque ``Shop Open?``.
+
+![](./imagens/opw12.png)
+
+8. Verifique a definição da Amazon States Language (ASL) escolhendo o botão de alternância Definition acima do designer. A ASL aparece como:
+
+```javascript
+
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "DynamoDB Get Shop Status",
+  "States": {
+    "DynamoDB Get Shop Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "serverlesspresso-config-table",
+        "Key": {
+          "PK": {
+            "S": "config"
+          }
+        }
+      },
+      "ResultPath": "$.GetStore",
+      "Next": "Shop Open?"
+    },
+    "Shop Open?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Not": {
+            "Variable": "$.GetStore.Item.storeOpen.BOOL",
+            "BooleanEquals": true
+          },
+          "Next": "PutEvents"
+        }
+      ],
+      "Default": "Pass"
+    },
+    "PutEvents": {
+      "Type": "Task",
+      "End": true,
+      "Parameters": {
+        "Entries": [
+          {}
+        ]
+      },
+      "Resource": "arn:aws:states:::aws-sdk:eventbridge:putEvents"
+    },
+    "Pass": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
+```
+
+![](./imagens/opw13.png)
+
+9. Selecione Aplicar e saia.
+
+![](./imagens/opw14.png)
+
+## Testing the Step Functions workflow
+
+1. Na seção anterior, na página que mostra o novo fluxo de trabalho, escolha Iniciar execução . No pop-up Iniciar execução , escolha Iniciar execução .
+
+2. Após a execução ser concluída, o console mostra uma página de resultados. O lado esquerdo mostra o fluxo de execução com os estados verdes mostrando o caminho real. Escolha o status **Shop Open** para mostrar os detalhes no lado direito.
+
+![](./imagens/tm6.png)
+
+# Listing the active executions of the workflow
+
+1. Abra a sua maquina de estados e vá em **Editar**
+2. Com a aba Actions selecionada à esquerda, digite ``listexecutions`` na barra de pesquisa. Arraste a ação AWS Step Functions ListExecutions da lista para entre os estados **Shop Open?**
+
+![](./imagens/lt1.png)
+
+3. Na aba Configuration do estado coloque :
+- O nome **ListExecutions**.
+- Nos Parâmetros de API , cole o seguinte JSON:
+
+```javascript
+{
+  "StateMachineArn": "YOUR_STATE_MACHINE_ARN",
+  "MaxResults": 100,
+  "StatusFilter": "RUNNING"
+}
+```
+
+4. Selecione a aba **Saída** para modificar a saída do estado e incluir o resultado da chamada do SDK:
+
+- Marque a caixa Adicionar entrada original à saída usando ResultPath .
+- No menu insira ``$.isCapacityAvailable``
+
+![](./imagens/lt2.png)
+
+## Adding branching logic
+
+1. Na guia **Fluxo**, arraste o estado **Choice** para baixo do estado **ListExecutions**.
+
+![](./imagens/lt3.png)
+
+2. Em seguida, clique no estado de **Choice** para abrir seus atributos e clique no ícone de edição e escolha **Adicionar condições**.
+
+![](./imagens/lt5.png)
+
+3. Nas condições, coloque:
+- Na aba **NOT** , deixe em branco.
+- Na aba **Variável** , insira ``$.isCapacityAvailable.Executions[20]``.
+- Na aba **Operador** , selecione **is present**.
+- Na aba **VALUE** , coloque **true**
+- Selecione **Save conditions**.
+
+![](./imagens/lt4.png)
+
+4. Na aba **Then next state** escolha **EventBridge PutEvents**.
+5. Coloque ``Is capacity available?`` para o nome.
+6. verifique se a definição aparece como:
+
+```javascript
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "DynamoDB Get Shop Status",
+  "States": {
+    "DynamoDB Get Shop Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "serverlesspresso-config-table",
+        "Key": {
+          "PK": {
+            "S": "config"
+          }
+        }
+      },
+      "ResultPath": "$.GetStore",
+      "Next": "Shop Open?"
+    },
+    "Shop Open?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Not": {
+            "Variable": "$.GetStore.Item.storeOpen.BOOL",
+            "BooleanEquals": true
+          },
+          "Next": "PutEvents"
+        }
+      ],
+      "Default": "ListExecutions"
+    },
+    "ListExecutions": {
+      "Type": "Task",
+      "Next": "Is capacity available?",
+      "Parameters": {
+        "StateMachineArn": "YOUR_STATE_MACHINE_ARN",
+        "MaxResults": 100,
+        "StatusFilter": "RUNNING"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:sfn:listExecutions",
+      "ResultPath": "$.isCapacityAvailable"
+    },
+    "Is capacity available?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.isCapacityAvailable.Executions[20]",
+          "IsPresent": true,
+          "Next": "PutEvents"
+        }
+      ],
+      "Default": "Pass"
+    },
+    "PutEvents": {
+      "Type": "Task",
+      "End": true,
+      "Parameters": {
+        "Entries": [
+          {}
+        ]
+      },
+      "Resource": "arn:aws:states:::aws-sdk:eventbridge:putEvents"
+    },
+    "Pass": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
+```
+7. Salve e saia
+8. Teste para ver se funcionou
+
+![](./imagens/lt6.png)
+![](./imagens/lt7.png)
+
+# ADDING AN ORDER NUMBER
+
+## Updating an atomic counter in a DynamoDB table
+
+1. Abra sua maquina de estados 
+2. Com a aba **Actions** selecionada à esquerda, digite **updateitem** na barra de pesquisa.
+![](./imagens/update1.png)
+
+3. Com o estado selecionado, coloque :
+- Para Nome do estado , digite ``Generate Order Number``.
+- Para Parâmetros de API , cole a seguinte consulta do DynamoDB:
+
+```javascript
+{
+  "TableName": "serverlesspresso-counting-table",
+  "Key": {
+    "PK": {
+      "S": "orderID"
+    }
+  },
+  "UpdateExpression": "set IDvalue = IDvalue + :val",
+  "ExpressionAttributeValues": {
+    ":val": {
+      "N": "1"
+    }
+  },
+  "ReturnValues": "UPDATED_NEW"
+}
+```
+4. Selecione a aba **Saída** e:
+- Marque a caixa **Transformar resultado com ResultSelector** e coloque o codigo abaixo dentro da caixa de texto.
+
+```javascript
+{
+  "orderNumber.$": "$.Attributes.IDvalue.N"
+}
+```
+5. Depois marque a caixa **Adicionar entrada original à saída usando ResultPath** e insira ``$.Order.Payload``.
+
+![](./imagens/update2.png)
+
+6. Verifique se o codigo aparece como
+
+```javascript
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "DynamoDB Get Shop status",
+  "States": {
+    "DynamoDB Get Shop status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:getItem",
+      "Parameters": {
+        "TableName": "serverlesspresso-config-table",
+        "Key": {
+          "PK": {
+            "S": "config"
+          }
+        }
+      },
+      "ResultPath": "$.GetStore",
+      "Next": "Shop Open?"
+    },
+    "Shop Open?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Not": {
+            "Variable": "$.GetStore.Item.storeOpen.BOOL",
+            "BooleanEquals": true
+          },
+          "Next": "EventBridge PutEvents"
+        }
+      ],
+      "Default": "ListExecutions"
+    },
+    "ListExecutions": {
+      "Type": "Task",
+      "Next": "Is capacity available?",
+      "Parameters": {
+        "StateMachineArn": "YOUR_STATE_MACHINE_ARN",
+        "MaxResults": 100,
+        "StatusFilter": "RUNNING"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:sfn:listExecutions",
+      "ResultPath": "$.isCapacityAvailable"
+    },
+    "Is capacity available?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.isCapacityAvailable[20]",
+          "IsPresent": true,
+          "Next": "EventBridge PutEvents"
+        }
+      ],
+      "Default": "Generate Order Number"
+    },
+    "Generate Order Number": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "TableName": "serverlesspresso-counting-table",
+        "Key": {
+          "PK": {
+            "S": "orderID"
+          }
+        },
+        "UpdateExpression": "set IDvalue = IDvalue + :val",
+        "ExpressionAttributeValues": {
+          ":val": {
+            "N": "1"
+          }
+        },
+        "ReturnValues": "UPDATED_NEW"
+      },
+      "Next": "Pass",
+      "ResultPath": "$.Order.Payload",
+      "ResultSelector": {
+        "orderNumber.$": "$.Attributes.IDvalue.N"
+      }
+    },
+    "EventBridge PutEvents": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
+      "Parameters": {
+        "Entries": [
+          {
+            "Detail": {
+              "Message": "Hello from Step Functions!",
+              "TaskToken.$": "$$.Task.Token"
+            },
+            "DetailType": "MyDetailType",
+            "EventBusName": "MyEventBusName",
+            "Source": "MySource"
+          }
+        ]
+      },
+      "End": true
+    },
+    "Pass": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
+```
+7. Salve e saia
+8. Teste a funcionalidade
+
+![](./imagens/update3.png)
+
+# WAITING FOR THE ORDER
+
+## Adding a callback state for customer orders
+
+1. Abra sua maquina de estados 
+2. Com a aba **Actions** selecionada à esquerda, digite **putevents** na barra de pesquisa e arraste o estado para a direita do **Is capacity avalible?**.
+3. Com o estado selecionado, o painel de atributos à direita mostra a configuração para esse estado. 
+- **Nome do estado**: ``Emit - Workflow Started TT``.
+- Marque a caixa **Aguardar retorno de chamada**.
+- **Parâmetros de API**: Cole o seguinte JSON:
+
+```json
+{
+  "Entries": [
+    {
+      "Detail": {
+        "Message": "The workflow waits for your order to be submitted. It emits an event with a unique 'task token'. The token is stored in an Amazon DynamoDB table, along with your order ID.",
+        "TaskToken.$": "$$.Task.Token",
+        "orderId.$": "$.detail.orderId",
+        "userId.$": "$.detail.userId"
+      },
+      "DetailType": "OrderProcessor.WorkflowStarted",
+      "EventBusName": "Serverlesspresso",
+      "Source": "awsserverlessda.serverlesspresso"
+    }
+  ]
+}
+```
+
+![](./imagens/update4.png)
+
+4. Selecione a aba **Saída**. 
+- Marque a caixa **Adicionar entrada original à saída usando ResultPath**.
+- No menu selecione **Discard result and keep original input**.
+
+![](./imagens/update5.png)
+
+5. Selecione a aba **Tratamento de erros** e em **Erros de captura**, selecione **Adicionar novo agente de captura**.
+
+- Para **Comentário** , insira ``Customer timed out``.
+- Para **Erros** , selecione **States.Timeout** .
+- Para **Estado de fallback** , selecione **Adicionar novo estado** .
+- Selecione **Fechar** .
+
+![](./imagens/update6.png)
+
+6. Ainda na aba **Tratamento de erros**, na parte **HeartbeatSeconds** , escolha **Inserir HeartbeatSeconds** e coloque ``900``. Isso significa que o fluxo de trabalho expirará se o retorno de chamada não for recebido em 15 minutos.
+
+![](./imagens/update7.png)
+
+7. Arraste um estado **Pass** para o espaço vazio.
+8. Com o estado selecionado, o painel de atributos à direita mostra a configuração desse estado.
+
+- Na guia **Configuração**, coloque o nome do estado como: ``Customer timedout``.
+- Na guia **Saída** coloque o **Resultado**: ``"Customer timedout"``.
+- Selecione **Adicionar entrada original à saída usando ResultPath**e no campo de entrada, digite `$.cause`.
+- Salve
+
+![](./imagens/update8.png)
+![](./imagens/update9.png)
+
+# Adding a callback state for baristas to make an order
+
+1. Com a aba **Ações** selecionada à esquerda, digite ``putevents`` na barra de pesquisa. Arraste a ação **Amazon EventBridge PutEvents** da lista para entre os estados **Generate Order Number** e **Pass** no designer.
+
+![](./imagens/callback1.png)
+
+2. Abra a aba configurações do estado e:
+- Para Nome do estado , insira ``Emit - Awaiting Completion TT``.
+- Para Parâmetros de API , cole o seguinte JSON:
+```json{
+  "Entries": [
+    {
+      "Detail": {
+        "Message": "You pressed 'submit order'. The workflow resumes using the stored 'task token', it generates your order number. It then pauses again, emitting an event with a new 'task token'.",
+        "TaskToken.$": "$$.Task.Token",
+        "orderId.$": "$.detail.orderId",
+        "orderNumber.$": "$.Order.Payload.orderNumber",
+        "userId.$": "$.detail.userId"
+      },
+      "DetailType": "OrderProcessor.WaitingCompletion",
+      "EventBusName": "Serverlesspresso",
+      "Source": "awsserverlessda.serverlesspresso"
+    }
+  ]
+}
+```
+![](./imagens/callback2.png)
+
+3. Selecione a aba **Saída**.
+- Marque a caixa **Adicionar entrada original à saída usando ResultPath**.
+- No menu selecione **Combine original input with result**.
+- Na caixa de texto, insira ``$.order``.
+
+![](./imagens/callback3.png)
+
+4. Selecione a aba **Tratamento de erros**. Em **Captura de erros**, selecione **Adicionar novo agente de captura**.
+
+- Para Comentário , insira ``Barista timed out``.
+- Para Erros , selecione **States.Timeout**.
+- Para Estado de fallback , selecione **Add new state**.
+- Para ResultPath , insira ``$.comment``.
+- Selecione **Fechar** .
+- Ainda na aba **Tratamento de erros**, na parte **HeartbeatSeconds** , escolha **Inserir HeartbeatSeconds** e coloque ``900``.
+
+![](./imagens/callback4.png)
+![](./imagens/callback5.png)
+
+5. Arraste um estado **Pass** para o estado vazio.
+   
+![](./imagens/callback6.png)
+
+6. Com o estado selecionado:
+- Na guia **Configuração**, mude o nome para ``Barista timedout``.
+- Na guia **Saída** , mude o **Resultado**, para ``"Barista timedout"``.
+- Selecione **Adicionar entrada original à saída usando ResultPath** e digite ``$.cause``.
+- Selecione **Aplicar e sair**. Na página Editar, selecione Salvar.
+
+![](./imagens/callback7.png)
+![](./imagens/callback8.png)
+
+7. Para testar selecione **Executar**, depois escreva o seguinte JSON.
+
+```json
+{
+    "detail": {
+      "orderId": "1",
+      "userId": "testuser"
+    }
+}
+```
+![](./imagens/callback9.png)
+
+8. O console mostra o status de Execução de Running . O lado esquerdo mostra o fluxo de execução com os estados verdes mostrando o caminho real. O estado azul mostra quando a execução está suspensa, aguardando um retorno de chamada.
+
+![](./imagens/callback10.png)
+
+9.  Copie o valor TaskToken para um bloco de rascunho.
+
+![](./imagens/callback11.png)
+
+10. Você usará um serviço chamado AWS CloudShell, um terminal shell baseado em navegador que facilita o gerenciamento, a exploração e a interação segura com seus recursos da AWS para executar o comando da API.
+
+11. Para iniciar, na barra de pesquisa do AWS Management Console, digite ``CloudShell``.
+
+![](./imagens/callback12.png)
+
+12. No terminal do CloudShell, insira o seguinte comando, substituindo ``YOUR_TASK_TOKEN`` pelo valor do token que você guardou:
+```javascript
+aws stepfunctions send-task-success  --task-output '{"orderId":1}' --task-token YOUR_TASK_TOKEN
+```
+![](./imagens/callback13.png)
+
+13. O console mostra que a execução do fluxo de trabalho foi concluída.
+
+![](./imagens/callback14.png)
+
+# EMITTING EVENTS
+
+## Emitting a time out event
+
+1. Com a aba **Ações** selecionada à esquerda, digite ``putevents`` na barra de pesquisa. Arraste a ação **Amazon EventBridge PutEvents** da lista para entre os estados **Customer timeout**.
+
+![](./imagens/error1.png)
+
+2. Com o estado selecionado na aba Configuration :
+- Mude o nome do estado para ``Emit - error timeout``.
+- Para Parâmetros de API , cole o seguinte JSON:
+```javascript {
+  "Entries": [
+    {
+      "Detail": {
+        "Message": "The order timed out. Step Functions waits a set amount of time (5 minutes for a customer, 15 minutes for a barista), no action was taken and so the order is ended.",
+        "userId.$": "$.detail.userId",
+        "orderId.$": "$.detail.orderId",
+        "cause.$": "$.cause"
+      },
+      "DetailType": "OrderProcessor.OrderTimeOut",
+      "EventBusName": "Serverlesspresso",
+      "Source": "awsserverlessda.serverlesspresso"
+    }
+  ]
+}
+``` 
+
+![](./imagens/error2.png)
+
+3. Conecte o estado de passagem de tempo limite do Barista ao estado de tempo limite de **Emit - error timmeout**. 
+
+![](./imagens/error3.png)
+
+## Emitting an order finished event
+
+1. Arraste a ação **Amazon EventBridge PutEvents** da lista para entre os estados **Pass** e **End**.
+
+![](./imagens/error4.png)
+
+2. Com o estado selecionado:
+- Mude o nome para ``Emitir - pedido concluído``.
+- Certifique-se de que Aguardar retorno de chamada esteja desmarcado .
+- Para Parâmetros de API , cole o seguinte JSON:
+```json
+{
+  "Entries": [
+    {
+      "Detail": {
+        "Message": "The order has reached the end of the workflow, and so a final event is emitted to alert other services to this.",
+        "userId.$": "$.detail.userId",
+        "orderId.$": "$.detail.orderId"
+      },
+      "DetailType": "OrderProcessor.orderFinished",
+      "EventBusName": "Serverlesspresso",
+      "Source": "awsserverlessda.serverlesspresso"
+    }
+  ]
+}
+```
+![](./imagens/error5.png)
+
+# Updating the shop not ready event
+
+1. Escolha o estado PutEvents entre os estados Loja aberta? e Fim no designer.
+2. Com o estado selecionado,coloque:
+- Para o nome do estado , insira ``Emit - Shop not ready`` .
+- Desmarque a caixa **Aguardar retorno de chamada**.
+- Para Parâmetros de API , cole o seguinte JSON:
+```json
+{
+  "Entries": [
+    {
+      "Detail": {
+        "Message": "The Step functions workflow checks if the shop is open and has capacity to serve a new order by invoking a Lambda function that queries the Shop config service. The shop was not ready, and so a 'not ready' event is emitted to cancel the current order.",
+        "userId.$": "$.detail.userId"
+      },
+      "DetailType": "OrderProcessor.ShopUnavailable",
+      "EventBusName": "Serverlesspresso",
+      "Source": "awsserverlessda.serverlesspresso"
+    }
+  ]
+}
+``` 
+![](./imagens/error6.png)
+
+3. Salve e saia.
+
+# TESTING
+
+## Testing the workflow with the store open
+
+1. Selecione executar e cole o seguinte JSON na aba que foi aberta
+```javascript
+{
+    "detail": {
+      "orderId": "1",
+      "userId": "testuser"
+    }
+}
+```
+
+![](./imagens/testando1.png)
+
+2. O inspetor de gráfico mostra o caminho do fluxo de trabalho seguido como resultado da abertura da loja.
+
+![](./imagens/testando2.png)
+
+## Testing the workflow with the store closed
+
+1. No menu a cima escreva e selecione **DynamoDB**. No menu a esquerda selecione **Explorar itens**. Depois escolha ``serverlesspresso-config-table`` na lista **Tabelas**.
+
+![](./imagens/testando3.png)
+![](./imagens/testando4.png)
+
+1. Selecione o item **Config** no painel Itens. Isso abre o editor de itens. Selecione JSON e desabilite View DynamoDB JSON.
+2. Defina a loja para abrir. Cole o JSON a seguir:
+```javascript
+{
+ "PK": "config",
+ "storeOpen": false,
+ "maxOrdersPerUser": 1,
+ "maxOrdersInQueue": 10
+}
+```
+![](./imagens/testando5.png)
+
+3. Selecione **Salvar** alterações para atualizar a tabela.
+4. No pop-up Iniciar execução , insira a seguinte carga JSON e escolha Iniciar execução :
+```json
+{
+    "detail": {
+      "orderId": "1",
+      "userId": "testuser"
+    }
+}
+```
+
+5. O inspetor de gráfico mostra o caminho do fluxo de trabalho seguido como resultado do fechamento da loja.
+
+![](./imagens/testando6.png)
+
+6. A execução terminou. No painel Histórico de eventos de execução , expanda o evento com o tipo TaskScheduled para a etapa EventBridge PutEvents. O fluxo de trabalho emitiu um evento indicando que a loja está indisponível. Isso pode ser consumido por outros microsserviços no aplicativo para tomar as ações apropriadas.
+
+7. Defina o armazenamento de volta para **“aberto”** na tabela do DynamoDB. 1. Vá para o console do DynamoDB. No AWS Management Console, selecione Services e, em seguida, selecione DynamoDB em Database.
+
+8. No menu à esquerda, escolha ``serverlesspresso-config-table`` na lista Tables.
+
+9. Selecione o item de configuração no painel Itens retornadose defina a loja de volta para aberta. Cole o **JSON** a seguir, que define **storeOpen** como **true**.
+
+```json 
+{
+ "PK": "config",
+ "storeOpen": true,
+ "maxOrdersPerUser": 1,
+ "maxOrdersInQueue": 10
+}
+```
+10. Salve e continue.

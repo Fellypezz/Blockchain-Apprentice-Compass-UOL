@@ -1,0 +1,97 @@
+# O que são Smart Contracts
+
+- **Smart contracts** são programas que se executam automaticamente quando condições acordadas entre as partes são atendidas, eliminando a necessidade de intermediários como bancos. Um exemplo prático seria um contrato de empréstimo, onde etapas como verificação de crédito e análise de renda são automatizadas. Após a execução dessas etapas, o valor é liberado sem intervenção humana.
+
+- A grande diferença dos **smart contracts** é a segurança: uma vez que o contrato é publicado na **blockchain**, ele se torna imutável, garantindo que nenhuma das partes possa alterá-lo unilateralmente. A **blockchain** é a tecnologia que sustenta esse processo, proporcionando uma camada de segurança e confiança.
+
+## Blockchains e Smart Contracts
+
+- A plataforma mais conhecida para **Smart Contracts** é o **Ethereum**, mas outras redes, como **Polygon** e **Binance Smart Chain**, também oferecem suporte. Nas blockchains, transações que alteram o estado da rede exigem o pagamento de uma taxa chamada **Gas**. Da mesma forma, ao realizar transações de escrita em contratos inteligentes, os usuários precisam pagar essa taxa. No entanto, transações de leitura não têm custo.
+
+## Carteiras Digitais
+
+- As **carteiras digitais** são ferramentas que operam acima da blockchain, simplificando a execução de transações. Elas auxiliam os usuários na administração de suas chaves públicas e privadas. Um exemplo popular é o **Metamask**. É importante destacar que essas carteiras são apenas interfaces; se algum dia elas pararem de funcionar, os usuários não perderão seus ativos, desde que possuam suas chaves de acesso.
+
+
+## Solidity
+
+## O que é Solidity?
+
+**Solidity** é uma linguagem de alto nível voltada para a implementação de **Smart Contracts**, influenciada pelo **JavaScript (ECMAScript)**. A linguagem é estaticamente tipada e compilada, com conceitos que remetem à **orientação a objetos**. Entre os frameworks mais populares para o desenvolvimento com Solidity, destacam-se: **Hardhat**, **Truffle** e **Foundry**.
+
+## Estrutura de um Contrato
+
+A estrutura de um contrato em Solidity é similar a uma classe em java. Ele contém **funções**, onde as do tipo **view** não exigem o pagamento de taxas de Gas.
+
+## Estruturas de Controle
+
+- **If/Else**
+- **Loops**: **For/While**
+
+## Tipos de Dados
+
+- **(U)Int**, **Boolean**, **Arrays**
+- **Struct**, **Mapping**, **Address** (tipo específico para representar endereços)
+- Não possui suporte a **Float**.
+
+### Herança e Estruturas Especiais
+
+Solidity suporta **herança** e contém **estruturas especiais** como **modificadores**. Além disso, permite o uso de **imports**, como na maioria das linguagens de programação.
+
+### Funções de Transferência
+
+- **transfer**: Lança erro se o limite de 2300 de Gas for ultrapassado.
+- **send**: Retorna um booleano e tem um limite de 2300 de Gas.
+- **call**: Encaminha todo o Gas ou permite definir a quantidade de Gas, retornando um valor booleano.
+
+**Atenção!** Tome cuidado com o **ataque de reentrância**. Essa vulnerabilidade ocorre quando um contrato chama uma função externa, que, por sua vez, faz uma chamada de volta para a função original antes que sua execução seja concluída. Isso pode permitir que um usuário retire fundos múltiplas vezes de um contrato. Para evitar essa vulnerabilidade, recomenda-se o uso de práticas de proteção, como o **Reentrancy Guard**.
+
+## Exemplo
+
+```javascript
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SimpleVault {
+    // Mapeamento para armazenar o saldo de cada usuário
+    mapping(address => uint) public balances;
+
+    // Função para depositar Ether no contrato
+    function deposit() public payable {
+        require(msg.value > 0, "O valor de depósito deve ser maior que zero");
+        balances[msg.sender] += msg.value;
+    }
+
+    // Função para retirar Ether do contrato
+    function withdraw(uint _amount) public {
+        require(balances[msg.sender] >= _amount, "Saldo insuficiente");
+        
+        // Atualiza o saldo antes de transferir o valor
+        balances[msg.sender] -= _amount;
+        
+        // Transferindo o valor para o endereço do usuário
+        payable(msg.sender).transfer(_amount);
+    }
+
+    // Função para verificar o saldo do contrato
+    function getContractBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}
+```
+
+- O contrato funciona da seguinte maneira: a função deposit permite que os usuários depositem Ether no contrato, e o valor depositado é armazenado no mapeamento balances. A função withdraw permite que os usuários retirem Ether, desde que tenham saldo suficiente. A função getContractBalance retorna o saldo total de Ether armazenado no contrato. Observações importantes: payable indica que a função pode receber Ether, msg.sender refere-se ao endereço do remetente da transação, e msg.value é a quantidade de Ether enviada. 
+
+## Tokens
+
+**Introdução**  
+Tokens são representações digitais na blockchain que podem simbolizar dinheiro, serviços, tempo, entre outros. Um contrato de token é um smart contract que gerencia saldos e endereços, aplicando regras específicas para adicionar ou subtrair tokens.
+
+**Tipos de Tokens**  
+- **Fungíveis**: Tokens intercambiáveis e equivalentes, como moedas, onde cada unidade tem o mesmo valor.
+- **Não-fungíveis**: Tokens únicos e distintos, como obras de arte, onde cada item tem um valor próprio e não pode ser trocado por um igual.
+
+**Padrões Populares**  
+- **ERC20**: O padrão mais comum e simples para tokens fungíveis.
+- **ERC777**: Um padrão avançado para tokens fungíveis, com mais funcionalidades e compatível com ERC20.
+- **ERC721**: O padrão para tokens não-fungíveis, geralmente usado para itens colecionáveis.
